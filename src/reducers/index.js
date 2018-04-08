@@ -1,7 +1,7 @@
 import { combineReducers } from 'redux';
-import results from './results';
+import simulator from './simulator';
 
 export default combineReducers({
-  results,
+  simulator,
 });
 
