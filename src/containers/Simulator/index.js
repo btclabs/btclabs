@@ -18,25 +18,31 @@ import InputGroup from 'react-bootstrap/lib/InputGroup';
 import Well from 'react-bootstrap/lib/Well';
 import Button from 'react-bootstrap/lib/Button';
 import Table from 'react-bootstrap/lib/Table';
+import Alert from 'react-bootstrap/lib/Alert';
 
 class Simulator extends Component {
   constructor(props) {
     super(props);
-    // On screen info - Start
-    this.balance = 100000;
+    this.maxRandom = 10000;
+    this.getRandomSeed = seedrandom();
+    this.houseEdge = 0.05;
+    this.showAutoBetStatus = false;
+    this.showManualBetStatus = false;
 
-    this.baseBet = 1;
+    // On screen info - Start
+    this.balance = 0.00100000;
+
+    this.baseBet = 0.00000001;
     this.maxBetWin = 20;
-    this.betOdds = 2;
-    this.winChance = (1/this.betOdds)*0.95;
+    this.betOdds = 2.00;
     this.noOfRolls = 10;
     this.betOnHi = false;
     this.betOnLo = false;
     this.betOnAlternate = true;
     this.stopBettingAfterProfit = false;
-    this.stopBettingAfterProfitGreaterEqual = 0;
+    this.stopBettingAfterProfitGreaterEqual = 0.00000001;
     this.stopBettingAfterLoss = false;
-    this.stopBettingAfterLossGreaterEqual = 0;
+    this.stopBettingAfterLossGreaterEqual = 0.00000001;
 
     this.onWinReturnToBaseBet = true;
     this.onWinIncreaseBet = false;
@@ -55,16 +61,33 @@ class Simulator extends Component {
     this.randomizeClientSeed = false;
     this.randomRoll = 0;
 
-    this.prize1Selected = false;
-    this.prizePoint1Selected = false;
-    this.prizePoint01Selected = false;
-    this.prizePoint001Selected = false;
-    this.prizePoint0001Selected = false;
+    this.jackpot1Selected = false;
+    this.jackpot2Selected = false;
+    this.jackpot3Selected = false;
+    this.jackpot4Selected = false;
+    this.jackpot5Selected = false;
+
+    this.jackpot1Prize = 1.00000000;
+    this.jackpot2Prize = 0.10000000;
+    this.jackpot3Prize = 0.01000000;
+    this.jackpot4Prize = 0.00100000;
+    this.jackpot5Prize = 0.00010000;
+
+    this.jackpot1Cost = 0.00012500;
+    this.jackpot2Cost = 0.00001250;
+    this.jackpot3Cost = 0.00000125;
+    this.jackpot4Cost = 0.00000013;
+    this.jackpot5Cost = 0.00000002;
     // On screen info - End
 
+    this.jackpotSelected = (
+      this.jackpot1Selected ||
+      this.jackpot2Selected ||
+      this.jackpot3Selected ||
+      this.jackpot4Selected ||
+      this.jackpot5Selected
+    );
 
-    this.maxRandom = 10000;
-    this.getRandomSeed = seedrandom();
 
 /*
 var randomArray = generateRandomArray(noOfRolls, maxRandom);
@@ -94,23 +117,170 @@ var warning = '';
     clearTimeout(this.timeoutId);
   }
 
-  onStartAutoBet = () => {
+  handleStartAutoBet = () => {
+    this.showAutoBetStatus = true;
+    this.currentBet = this.baseBet;
+    this.originalBalanceInThisSession = this.balance;
+    this.rollsPlayedInThisSession = 0;
+    this.rollsRemainingInThisSession = 0;
+    this.biggestBetInThisSession = 0;
+    this.biggestWinInThisSession = 0;
+    this.bettingProfitOrLossInThisSession = 0;
+    this.bettingProfitOrLossInThisSessionStyle = 'info';
+    this.alertMessage = '';
+    this.alertStyle = 'info';
+    this.jackpotAlertMessage = '';
+    this.bettingOnForBetOnAlternate = 'LO';
+
     this.props.startAutoBet(this.noOfRolls);
     this.handleRoll();
   }
 
-  onStopAutoBet = () => {
+  handleStopAutoBet = () => {
     this.props.stopAutoBet();
     clearTimeout(this.timeoutId);
   }
 
-  onStartManualBet = () => {
+  handleStartManualBet = () => {
+    this.showManualBetStatus = true;
     this.props.startManualBet();
   }
 
   handleRoll = () => {
+    if (this.balance - this.currentBet < 0) {
+      this.alertMessage = 'Insufficient balance to make this bet';
+      this.alertStyle = 'danger';
+      this.handleStopAutoBet();
+      return;
+    }
+
+    //Record biggestBetInThisSession before determining win or lose, this makes sure the value is the one that is used, instead of the one that is later increased or returned to base bet after certain conditions met.
+    if (this.currentBet > this.biggestBetInThisSession) {
+      this.biggestBetInThisSession = this.currentBet;
+    }
+
     this.randomizeRoll();
+
+    if (this.betOnHi) {
+      this.bettingOn = 'HI';
+    }
+    if (this.betOnLo) {
+      this.bettingOn = 'LO';
+    }
+    if (this.betOnAlternate) {
+      this.bettingOn = this.bettingOnForBetOnAlternate;
+    }
+
+    this.winProfitInThisRoll = 0;
+
+    if (
+      ((this.bettingOn === 'HI') && (this.randomRoll > this.getWinningConditionForHi(this.betOdds))) ||
+      ((this.bettingOn === 'LO') && (this.randomRoll < this.getWinningConditionForLo(this.betOdds)))
+    ) {
+      //Win
+      this.winProfitInThisRoll = this.getWinProfit(this.currentBet, this.betOdds);
+      this.balance = this.balance + this.winProfitInThisRoll;
+      this.alertMessage = 'You BET ' + this.bettingOn + ' so you win ' + this.winProfitInThisRoll.toFixed(8) + ' BTC!';
+      this.alertStyle = 'success';
+      if (this.winProfitInThisRoll > this.biggestWinInThisSession) {
+        this.biggestWinInThisSession = this.winProfitInThisRoll;
+      }
+      if (this.onWinReturnToBaseBet) {
+        this.currentBet = this.baseBet;
+      }
+      if (this.onWinIncreaseBet) {
+        this.currentBet = this.currentBet + (Math.round(this.currentBet * (this.onWinIncreaseBetBy / 100) * 100000000) / 100000000);
+      }
+      if (this.onWinChangeOdds) {
+        this.betOdds = this.onWinChangeOddsTo;
+      }
+    } else {
+      //Lose
+      this.balance = this.balance - this.currentBet;
+      this.alertMessage = 'You BET ' + this.bettingOn + ' so you lose ' + this.currentBet.toFixed(8) + ' BTC!';
+      this.alertStyle = 'danger';
+      if (this.onLoseReturnToBaseBet) {
+        this.currentBet = this.baseBet;
+      }
+      if (this.onLoseIncreaseBet) {
+        this.currentBet = this.currentBet + (Math.round(this.currentBet * (this.onLoseIncreaseBetBy / 100) * 100000000) / 100000000);
+        console.log(this.currentBet);
+      }
+      if (this.onLoseChangeOdds) {
+        this.betOdds = this.onLoseChangeOddsTo;
+      }
+    }
+
+    this.balanceInput.value = this.balance.toFixed(8);
+
+    this.bettingProfitOrLossInThisSession = this.balance - this.originalBalanceInThisSession;
+    if (this.bettingProfitOrLossInThisSession >= 0) {
+      this.bettingProfitOrLossInThisSessionStyle = 'success';
+    } else {
+      this.bettingProfitOrLossInThisSessionStyle = 'danger';
+    }
+
+    this.rollsPlayedInThisSession += 1;
+
+    //this.rollsRemainingInThisSession is not exactly the same as this.props.simulator.noOfRollsRemaining, because this.rollsRemainingInThisSession is for display purpose, it is positive even if the auto bet is stopped.
+    this.rollsRemainingInThisSession = this.noOfRolls - this.rollsPlayedInThisSession;
+
     this.props.addResult(this.randomRoll);
+
+
+    if (this.betOnAlternate) {
+      if (this.bettingOnForBetOnAlternate === 'LO') {
+        this.bettingOnForBetOnAlternate = 'HI';
+      } else {
+        this.bettingOnForBetOnAlternate = 'LO';
+      }
+    }
+
+    if (this.currentBet > this.maxBetWin) {
+      this.currentBet = this.maxBetWin;
+    }
+
+    //The condition is met if the bet for next roll is greater than the max or if the win profit of this roll is greater than the max.
+    if (this.currentBet >= this.maxBetWin || this.winProfitInThisRoll >= this.maxBetWin) {
+      if (this.onHittingMaxBetWinReturnToBaseBet) {
+        this.currentBet = this.baseBet;
+      }
+      if (this.onHittingMaxBetWinStopBetting) {
+        this.handleStopAutoBet();
+        return;
+      }
+    }
+
+    if (this.stopBettingAfterProfit && this.bettingProfitOrLossInThisSession >= this.stopBettingAfterProfitGreaterEqual) {
+      this.handleStopAutoBet();
+      return;
+    }
+
+    if (this.stopBettingAfterLoss && this.bettingProfitOrLossInThisSession <= (-1 * this.stopBettingAfterLossGreaterEqual)) {
+      this.handleStopAutoBet();
+      return;
+    }
+
+  }
+
+  getWinChance = (betOdds) => {
+    return (1/betOdds)*(1-this.houseEdge);
+  }
+
+  getWinningConditionForHi = (betOdds) => {
+    return Math.round((1-this.getWinChance(betOdds)) * this.maxRandom); //Higher than this to win
+  }
+
+  getWinningConditionForLo = (betOdds) => {
+    return Math.round(this.getWinChance(betOdds) * this.maxRandom); //Lower than this to win
+  }
+
+  getWinProfit = (bet, betOdds) => {
+    let winProfit = Math.floor(bet * (betOdds - 1) * 100000000) / 100000000;
+    if (winProfit > this.maxBetWin) {
+      winProfit = this.maxBetWin;
+    }
+    return winProfit;
   }
 
   randomizeRoll = () => {
@@ -168,9 +338,9 @@ var warning = '';
               <FormControl
                 type="text"
                 placeholder="INCREASE BET BY"
-                defaultValue={increaseBetBy}
+                defaultValue={increaseBetBy.toFixed(2)}
                 onChange={(e)=>{
-                  setIncreaseBetBy(e.target.value);
+                  setIncreaseBetBy(parseFloat(e.target.value));
                 }}
               />
               <InputGroup.Addon>
@@ -197,7 +367,7 @@ var warning = '';
               placeholder="CHANGE ODDS TO"
               defaultValue={changeOddsTo}
               onChange={(e)=>{
-                setChangeOddsTo(e.target.value);
+                setChangeOddsTo(parseFloat(e.target.value));
               }}
             />
           </Col>
@@ -206,14 +376,14 @@ var warning = '';
     )
   }
 
-  renderJackpotRow = (prize, cost, prizeSelected, setPrizeSelected) => {
+  renderJackpotRow = (prize, cost, jackpotSelected, setJackpotSelected) => {
     return (
       <tr>
         <td>
           <Checkbox
-            defaultChecked={prizeSelected}
+            defaultChecked={jackpotSelected}
             onChange={(e)=>{
-              setPrizeSelected(e.target.checked);
+              setJackpotSelected(e.target.checked);
             }}
           >
           </Checkbox>
@@ -228,6 +398,22 @@ var warning = '';
     return (
       <div>
         <form>
+          <FormGroup validationState="success">
+            <Col xs={5}>
+              <ControlLabel>
+                BALANCE
+              </ControlLabel>
+            </Col>
+            <Col xs={7}>
+              <FormControl
+                type="text"
+                placeholder="BALANCE"
+                defaultValue={this.balance.toFixed(8)}
+                onChange={(e)=>{this.balance = parseFloat(e.target.value)}}
+                inputRef={ref => { this.balanceInput = ref; }}
+              />
+            </Col>
+          </FormGroup>
           <Tabs defaultActiveKey={1} id="manual-or-auto-tabs">
             <Tab eventKey={1} title="MANUAL BET">
               <br />
@@ -246,12 +432,9 @@ var warning = '';
                       <FormControl
                         type="text"
                         placeholder="BASE BET"
-                        defaultValue={this.baseBet}
-                        onChange={(e)=>{this.baseBet = e.target.value}}
+                        defaultValue={this.baseBet.toFixed(8)}
+                        onChange={(e)=>{this.baseBet = parseFloat(e.target.value)}}
                       />
-                      <HelpBlock>
-                        Help text with validation state.
-                      </HelpBlock>
                     </Col>
                   </FormGroup>
                   <FormGroup validationState="success">
@@ -265,11 +448,8 @@ var warning = '';
                         type="text"
                         placeholder="MAX BET/WIN"
                         defaultValue={this.maxBetWin}
-                        onChange={(e)=>{this.maxBetWin = e.target.value}}
+                        onChange={(e)=>{this.maxBetWin = parseFloat(e.target.value)}}
                       />
-                      <HelpBlock>
-                        Help text with validation state.
-                      </HelpBlock>
                     </Col>
                   </FormGroup>
                   <Row>
@@ -281,8 +461,10 @@ var warning = '';
                         <FormControl
                           type="text"
                           placeholder="BET ODDS"
-                          defaultValue={this.betOdds}
-                          onChange={(e)=>{this.betOdds = e.target.value}}
+                          defaultValue={this.betOdds.toFixed(2)}
+                          onChange={(e)=>{
+                            this.betOdds = parseFloat(e.target.value);
+                          }}
                         />
                       </FormGroup>
                     </Col>
@@ -295,7 +477,7 @@ var warning = '';
                           type="text"
                           placeholder="NO. OF ROLLS"
                           defaultValue={this.noOfRolls}
-                          onChange={(e)=>{this.noOfRolls = e.target.value}}
+                          onChange={(e)=>{this.noOfRolls = parseInt(e.target.value, 10)}}
                         />
                       </FormGroup>
                     </Col>
@@ -362,9 +544,9 @@ var warning = '';
                       <FormControl
                         type="text"
                         placeholder="PROFIT >="
-                        defaultValue={this.stopBettingAfterProfitGreaterEqual}
+                        defaultValue={this.stopBettingAfterProfitGreaterEqual.toFixed(8)}
                         onChange={(e)=>{
-                          this.stopBettingAfterProfitGreaterEqual = e.target.value;
+                          this.stopBettingAfterProfitGreaterEqual = parseFloat(e.target.value);
                         }}
                       />
                     </Col>
@@ -385,9 +567,9 @@ var warning = '';
                       <FormControl
                         type="text"
                         placeholder="LOSS >="
-                        defaultValue={this.stopBettingAfterLossGreaterEqual}
+                        defaultValue={this.stopBettingAfterLossGreaterEqual.toFixed(8)}
                         onChange={(e)=>{
-                          this.stopBettingAfterLossGreaterEqual = e.target.value;
+                          this.stopBettingAfterLossGreaterEqual = parseFloat(e.target.value);
                         }}
                       />
                     </Col>
@@ -426,20 +608,6 @@ var warning = '';
                       )}
                     </Tab>
                   </Tabs>
-                  {console.log(
-                    "radioGroupOnWin",
-                    this.onWinReturnToBaseBet,
-                    this.onWinIncreaseBet,
-                    this.onWinIncreaseBetBy,
-                    this.onWinChangeOdds,
-                    this.onWinChangeOddsTo,
-                    "radioGroupOnLose",
-                    this.onLoseReturnToBaseBet,
-                    this.onLoseIncreaseBet,
-                    this.onLoseIncreaseBetBy,
-                    this.onLoseChangeOdds,
-                    this.onLoseChangeOddsTo,
-                  )}
                   <br />
                   <br />
                   <br />
@@ -496,20 +664,74 @@ var warning = '';
                   <Well>
                     {this.randomRoll}
                   </Well>
+                  {this.showAutoBetStatus?
+                    <Alert
+                      bsStyle={this.alertStyle}
+                    >
+                      {this.alertMessage}
+                    </Alert>
+                  :
+                    null
+                  }
                   {this.props.simulator.noOfRollsRemaining <= 0?
                     <Button
                       bsStyle="warning"
-                      onClick={this.onStartAutoBet}
+                      onClick={this.handleStartAutoBet}
                     >
                       START AUTO-BET
                     </Button>
                   :
                     <Button
                       bsStyle="danger"
-                      onClick={this.onStopAutoBet}
+                      onClick={this.handleStopAutoBet}
                     >
                       STOP AUTO-BET
                     </Button>
+                  }
+                  {this.showAutoBetStatus?
+                    <div>
+                      <div>
+                        ROLLS PLAYED:
+                      </div>
+                      <div>
+                        {this.rollsPlayedInThisSession}
+                      </div>
+                      <div>
+                        ROLLS REMAINING:
+                      </div>
+                      <div>
+                        {this.rollsRemainingInThisSession}
+                      </div>
+                      <div>
+                        BIGGEST BET THIS SESSION:
+                      </div>
+                      <div>
+                        {this.biggestBetInThisSession.toFixed(8) + ' BTC'}
+                      </div>
+                      <div>
+                        BIGGEST WIN THIS SESSION:
+                      </div>
+                      <div>
+                        {this.biggestWinInThisSession.toFixed(8) + ' BTC'}
+                      </div>
+                      <div>
+                        BETTING P/L THIS SESSION:
+                      </div>
+                      <Alert
+                        bsStyle={this.bettingProfitOrLossInThisSessionStyle}
+                      >
+                        {this.bettingProfitOrLossInThisSession.toFixed(8) + ' BTC'}
+                      </Alert>
+                      {this.jackpotSelected?
+                        <Alert>
+                          {this.jackpotAlertMessage}
+                        </Alert>
+                      :
+                        null
+                      }
+                    </div>
+                  :
+                    null
                   }
                   <div>
                     PLAY FOR JACKPOTS
@@ -527,34 +749,34 @@ var warning = '';
                     </thead>
                     <tbody>
                       {this.renderJackpotRow(
-                        "1.00000000",
-                        "0.00012500",
-                        this.prize1Selected,
-                        (v)=>{this.prize1Selected = v},
+                        this.jackpot1Prize,
+                        this.jackpot1Cost,
+                        this.jackpot1Selected,
+                        (v)=>{this.jackpot1Selected = v},
                       )}
                       {this.renderJackpotRow(
-                        "0.10000000",
-                        "0.00001250",
-                        this.prizePoint1Selected,
-                        (v)=>{this.prizePoint1Selected = v},
+                        this.jackpot2Prize,
+                        this.jackpot2Cost,
+                        this.jackpot2Selected,
+                        (v)=>{this.jackpot2Selected = v},
                       )}
                       {this.renderJackpotRow(
-                        "0.01000000",
-                        "0.00000125",
-                        this.prizePoint01Selected,
-                        (v)=>{this.prizePoint01Selected = v},
+                        this.jackpot3Prize,
+                        this.jackpot3Cost,
+                        this.jackpot3Selected,
+                        (v)=>{this.jackpot3Selected = v},
                       )}
                       {this.renderJackpotRow(
-                        "0.00100000",
-                        "0.00000013",
-                        this.prizePoint001Selected,
-                        (v)=>{this.prizePoint001Selected = v},
+                        this.jackpot4Prize,
+                        this.jackpot4Cost,
+                        this.jackpot4Selected,
+                        (v)=>{this.jackpot4Selected = v},
                       )}
                       {this.renderJackpotRow(
-                        "0.00010000",
-                        "0.00000002",
-                        this.prizePoint0001Selected,
-                        (v)=>{this.prizePoint0001Selected = v},
+                        this.jackpot5Prize,
+                        this.jackpot5Cost,
+                        this.jackpot5Selected,
+                        (v)=>{this.jackpot5Selected = v},
                       )}
                     </tbody>
                   </Table>
