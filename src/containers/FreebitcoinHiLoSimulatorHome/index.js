@@ -51,9 +51,15 @@ class FreebitcoinHiLoSimulatorHome extends Component {
                 <a href="https://freedoge.co.in/?r=2373621" target="_blank">freedoge.co.in</a>
                 {"."}
                 <br />
+                <br />
                 {"You can view the source code "}
                 <a href="https://github.com/btclabs/btclabs/tree/master" target="_blank">here</a>
                 {"."}
+                <br />
+                <br />
+                <div>
+                {"However, the use of this simulator is at your own risk. This website does not make any warranty as to the results that may be obtained from use of this website or as to the accuracy, reliability or contents of any information provided through this website."}
+                </div>
               </div>
               <br />
               <br />
