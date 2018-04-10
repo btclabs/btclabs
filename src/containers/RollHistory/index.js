@@ -57,7 +57,7 @@ class RollHistory extends Component {
           {result.betInThisRoll.toFixed(8)}
         </td>
         <td>
-          {result.betOdds.toFixed(2)}
+          {result.betOddsInThisRoll.toFixed(2)}
         </td>
         <td
           style={{color: result.profitOrLoss >= 0? 'green' : 'red'}}

@@ -145,6 +145,7 @@ class Simulator extends Component {
     this.showAutoBetStatus = true;
     this.betInThisRoll = this.baseBet;
     this.betInNextRoll = this.baseBet;
+    this.betOddsInThisRoll = this.betOdds;
     this.betOddsInNextRoll = this.betOdds;
     this.originalBalanceInThisSession = this.balance;
     this.rollsPlayedInThisSession = 0;
@@ -196,7 +197,7 @@ class Simulator extends Component {
     }
 
     this.betInThisRoll = this.betInNextRoll;
-    this.betOdds = this.betOddsInNextRoll;
+    this.betOddsInThisRoll = this.betOddsInNextRoll;
     this.originalBalanceInThisRoll = this.balance;
 
     if ((
@@ -234,11 +235,11 @@ class Simulator extends Component {
     this.winProfitInThisRoll = 0;
 
     if (
-      ((this.bettingOn === 'HI') && (this.randomRoll > this.getWinningConditionForHi(this.betOdds))) ||
-      ((this.bettingOn === 'LO') && (this.randomRoll < this.getWinningConditionForLo(this.betOdds)))
+      ((this.bettingOn === 'HI') && (this.randomRoll > this.getWinningConditionForHi(this.betOddsInThisRoll))) ||
+      ((this.bettingOn === 'LO') && (this.randomRoll < this.getWinningConditionForLo(this.betOddsInThisRoll)))
     ) {
       //Win
-      this.winProfitInThisRoll = this.getWinProfit(this.betInThisRoll, this.betOdds);
+      this.winProfitInThisRoll = this.getWinProfit(this.betInThisRoll, this.betOddsInThisRoll);
       this.balance = this.balance + this.winProfitInThisRoll;
       this.alertMessage = 'You BET ' + this.bettingOn + ' so you win ' + this.winProfitInThisRoll.toFixed(8) + ' BTC!';
       this.alertStyle = 'success';
@@ -352,7 +353,7 @@ class Simulator extends Component {
       bettingOn: this.bettingOn,
       randomRoll: this.randomRoll,
       betInThisRoll: this.betInThisRoll,
-      betOdds: this.betOdds,
+      betOddsInThisRoll: this.betOddsInThisRoll,
       profitOrLoss: this.balance - this.originalBalanceInThisRoll,
       jackpotSelected: this.jackpotSelected,
       originalBalanceInThisRoll: this.originalBalanceInThisRoll,
