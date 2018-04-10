@@ -2,13 +2,11 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import seedrandom from 'seedrandom';
 import { addResult, startAutoBet, stopAutoBet, startManualBet } from '../../actions'
-import Grid from 'react-bootstrap/lib/Grid';
 import Row from 'react-bootstrap/lib/Row';
 import Col from 'react-bootstrap/lib/Col';
 import Clearfix from 'react-bootstrap/lib/Clearfix';
 import FormGroup from 'react-bootstrap/lib/FormGroup';
 import FormControl from 'react-bootstrap/lib/FormControl';
-import ControlLabel from 'react-bootstrap/lib/ControlLabel';
 import HelpBlock from 'react-bootstrap/lib/HelpBlock';
 import Radio from 'react-bootstrap/lib/Radio';
 import Checkbox from 'react-bootstrap/lib/Checkbox';
@@ -20,8 +18,6 @@ import Panel from 'react-bootstrap/lib/Panel';
 import Button from 'react-bootstrap/lib/Button';
 import Table from 'react-bootstrap/lib/Table';
 import Alert from 'react-bootstrap/lib/Alert';
-import OverlayTrigger from 'react-bootstrap/lib/OverlayTrigger';
-import Overlay from 'react-bootstrap/lib/Overlay';
 import Popover from 'react-bootstrap/lib/Popover';
 
 class Simulator extends Component {

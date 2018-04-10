@@ -52,7 +52,7 @@ class FreebitcoinHiLoSimulatorHome extends Component {
                 {"."}
                 <br />
                 {"You can view the source code "}
-                <a href="https://github.com/btclabs/btclabs" target="_blank">here</a>
+                <a href="https://github.com/btclabs/btclabs/tree/master" target="_blank">here</a>
                 {"."}
               </div>
               <br />
