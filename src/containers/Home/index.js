@@ -14,33 +14,9 @@ class Home extends Component {
           <Row>
             <Col xs={12}>
               <h1>
-                HI LO Simulator
+                btclabs
               </h1>
-              <h3>
-                For <a href="https://freebitco.in/?r=13203612">freebitco.in</a> and <a href="https://freedoge.co.in/?r=2373621">freedoge.co.in</a>
-              </h3>
-              <br />
-              <br />
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12}>
-              <Simulator />
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12}>
-              <RollHistory />
-            </Col>
-          </Row>
-          <Row>
-            <Col xs={12}>
-              <h2>
-                Source code?
-              </h2>
-              <h2>
-                Any other web app that you want me to build?
-              </h2>
+              <a href="/freebitcoin-hi-lo-simulator">Freebitcoin HI LO Simulator</a>
             </Col>
           </Row>
         </Grid>

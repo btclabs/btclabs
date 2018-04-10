@@ -59,11 +59,13 @@ class RollHistory extends Component {
         <td>
           {result.betOdds.toFixed(2)}
         </td>
-        <td>
+        <td
+          style={{color: result.profitOrLoss >= 0? 'green' : 'red'}}
+        >
           {result.profitOrLoss.toFixed(8)}
         </td>
         <td>
-          {result.jackpotWon}
+          {result.jackpotSelected? '✔' : '✖'}
         </td>
         <td>
           {result.originalBalanceInThisRoll.toFixed(8)}

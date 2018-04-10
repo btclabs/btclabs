@@ -20,6 +20,9 @@ import Panel from 'react-bootstrap/lib/Panel';
 import Button from 'react-bootstrap/lib/Button';
 import Table from 'react-bootstrap/lib/Table';
 import Alert from 'react-bootstrap/lib/Alert';
+import OverlayTrigger from 'react-bootstrap/lib/OverlayTrigger';
+import Overlay from 'react-bootstrap/lib/Overlay';
+import Popover from 'react-bootstrap/lib/Popover';
 
 class Simulator extends Component {
   constructor(props) {
@@ -31,7 +34,7 @@ class Simulator extends Component {
     this.showManualBetStatus = false;
 
     // On screen info - Start
-    this.balance = 0.00100000;
+    this.balance = 1.00000000;
 
     this.baseBet = 0.00000001;
     this.maxBetWin = 20;
@@ -79,14 +82,53 @@ class Simulator extends Component {
     this.jackpot3Cost = 0.00000125;
     this.jackpot4Cost = 0.00000013;
     this.jackpot5Cost = 0.00000002;
+
+    this.maxSpeedEnabled = false;
     // On screen info - End
 
+    // For validation - Start
+    this.balanceLowerLimit = 0;
+    this.betUpperLimit = 20;
+    this.betLowerLimit = 0.00000001;
+    this.betOddsUpperLimit = 4750.00;
+    this.betOddsLowerLimit = 1.01;
+    this.noOfRollsLowerLimit = 1;
+    this.stopBettingAfterLowerLimit = 0.00000001;
+    this.increaseBetByLowerLimit = 0;
+    // For validation - End
+
+    this.state = {
+      //For display purpose - Start
+      winningConditionForHi: 0,
+      winningConditionForLo: 0,
+      winChance: this.getWinChance(this.betOdds),
+      //For display purpose - End
+      //For validation - Start
+      balanceValidationState: true,
+      baseBetValidationState: true,
+      maxBetWinValidationState: true,
+      betOddsValidationState: true,
+      noOfRollsValidationState: true,
+      stopBettingAfterProfitGreaterEqualValidationState: true,
+      stopBettingAfterLossGreaterEqualValidationState: true,
+      onWinIncreaseBetByValidationState: true,
+      onLoseIncreaseBetByValidationState: true,
+      onWinChangeOddsToValidationState: true,
+      onLoseChangeOddsToValidationState: true,
+      //For validation - End
+    };
 
   }
 
   componentWillReceiveProps(nextProps) {
-    if (nextProps.simulator.noOfRollsRemaining !== this.props.simulator.noOfRollsRemaining && nextProps.simulator.noOfRollsRemaining > 0) {
-      this.timeoutId = setTimeout(this.handleRoll, 250);
+    if (nextProps.noOfRollsRemaining !== this.props.noOfRollsRemaining && nextProps.noOfRollsRemaining > 0) {
+      let delay;
+      if (this.maxSpeedEnabled) {
+        delay = 0;
+      } else {
+        delay = 250;
+      }
+      this.timeoutId = setTimeout(this.handleRoll, delay);
     }
   }
 
@@ -96,10 +138,10 @@ class Simulator extends Component {
 
   handleSelectManualOrAutoBet = (key) => {
     if (key === "manualBet") {
-      console.log('manual bet...');
+      return; //placeholder
     }
     if (key === "autoBet") {
-      console.log('auto bet...');
+      return; //placeholder
     }
   }
 
@@ -117,6 +159,7 @@ class Simulator extends Component {
     this.bettingProfitOrLossInThisSessionStyle = 'info';
     this.alertMessage = '';
     this.alertStyle = 'info';
+    this.jackpotSelected = false;
     this.jackpotAlertMessage = '';
     this.jackpotAlertStyle = 'info';
     this.bettingOnForBetOnAlternate = 'LO';
@@ -136,10 +179,39 @@ class Simulator extends Component {
   }
 
   handleRoll = () => {
+    if (
+      !this.state.balanceValidationState ||
+      !this.state.balanceValidationState ||
+      !this.state.baseBetValidationState ||
+      !this.state.maxBetWinValidationState ||
+      !this.state.betOddsValidationState ||
+      !this.state.noOfRollsValidationState ||
+      !this.state.stopBettingAfterProfitGreaterEqualValidationState ||
+      !this.state.stopBettingAfterLossGreaterEqualValidationState ||
+      !this.state.onWinIncreaseBetByValidationState ||
+      !this.state.onLoseIncreaseBetByValidationState ||
+      !this.state.onWinChangeOddsToValidationState ||
+      !this.state.onLoseChangeOddsToValidationState
+    ) {
+      this.alertMessage = 'Please check your inputs.';
+      this.alertStyle = 'danger';
+      this.handleStopAutoBet();
+      return;
+    }
+
     this.betInThisRoll = this.betInNextRoll;
     this.betOdds = this.betOddsInNextRoll;
     this.originalBalanceInThisRoll = this.balance;
-    if (this.balance - this.betInThisRoll < 0) {
+
+    if ((
+      this.balance
+      - this.betInThisRoll
+      - (this.jackpot1Selected * this.jackpot1Cost)
+      - (this.jackpot2Selected * this.jackpot2Cost)
+      - (this.jackpot3Selected * this.jackpot3Cost)
+      - (this.jackpot4Selected * this.jackpot4Cost)
+      - (this.jackpot5Selected * this.jackpot5Cost)
+    ) < 0) {
       this.alertMessage = 'Insufficient balance to make this bet';
       this.alertStyle = 'danger';
       this.handleStopAutoBet();
@@ -266,7 +338,7 @@ class Simulator extends Component {
 
     this.balanceInput.value = this.balance.toFixed(8);
 
-    this.bettingProfitOrLossInThisSession = this.balance - this.originalBalanceInThisSession;
+    this.bettingProfitOrLossInThisSession = Math.round((this.balance - this.originalBalanceInThisSession) * 100000000) / 100000000;
     if (this.bettingProfitOrLossInThisSession >= 0) {
       this.bettingProfitOrLossInThisSessionStyle = 'success';
     } else {
@@ -275,7 +347,7 @@ class Simulator extends Component {
 
     this.rollsPlayedInThisSession += 1;
 
-    //this.rollsRemainingInThisSession is not exactly the same as this.props.simulator.noOfRollsRemaining, because this.rollsRemainingInThisSession is for display purpose, it is positive even if the auto bet is stopped.
+    //this.rollsRemainingInThisSession is not exactly the same as this.props.noOfRollsRemaining, because this.rollsRemainingInThisSession is for display purpose, it is positive even if the auto bet is stopped.
     this.rollsRemainingInThisSession = this.noOfRolls - this.rollsPlayedInThisSession;
 
     this.props.addResult({
@@ -286,7 +358,7 @@ class Simulator extends Component {
       betInThisRoll: this.betInThisRoll,
       betOdds: this.betOdds,
       profitOrLoss: this.balance - this.originalBalanceInThisRoll,
-      jackpotWon: this.jackpotWon,
+      jackpotSelected: this.jackpotSelected,
       originalBalanceInThisRoll: this.originalBalanceInThisRoll,
       balance: this.balance,
     });
@@ -355,6 +427,14 @@ class Simulator extends Component {
     }
   }
 
+  renderPopover = (message) => {
+    return (
+      <Popover id={message + Date.now()}>
+        {message}
+      </Popover>
+    );
+  }
+
   renderOnWinOrLose = (
     radioGroupName,
     returnToBaseBet,
@@ -366,7 +446,11 @@ class Simulator extends Component {
     changeOdds,
     setChangeOdds,
     changeOddsTo,
-    setChangeOddsTo
+    setChangeOddsTo,
+    increaseBetByValidationState,
+    setIncreaseBetByValidationState,
+    changeOddsToValidationState,
+    setChangeOddsToValidationState,
   ) => {
     return (
       <div>
@@ -384,7 +468,7 @@ class Simulator extends Component {
             </Radio>
           </Col>
         </FormGroup>
-        <FormGroup validationState="success">
+        <FormGroup validationState={increaseBetByValidationState? "success" : "error"}>
           <Col xs={6}>
             <Radio
               name={radioGroupName}
@@ -405,16 +489,27 @@ class Simulator extends Component {
                 defaultValue={increaseBetBy.toFixed(2)}
                 onChange={(e)=>{
                   setIncreaseBetBy(parseFloat(e.target.value));
+                  (parseFloat(e.target.value) >= this.increaseBetByLowerLimit)? //Use the target value instead of the variable because it is more updated.
+                    setIncreaseBetByValidationState(true)
+                  :
+                    setIncreaseBetByValidationState(false)
                 }}
               />
               <InputGroup.Addon>
                 %
               </InputGroup.Addon>
             </InputGroup>
+            {!increaseBetByValidationState?
+              <HelpBlock>
+                {'Enter a value greater than or equal to ' + this.increaseBetByLowerLimit}
+              </HelpBlock>
+            :
+              null
+            }
           </Col>
         </FormGroup>
         <Clearfix />
-        <FormGroup validationState="success">
+        <FormGroup validationState={changeOddsToValidationState? "success" : "error"}>
           <Col xs={6}>
             <Checkbox
               defaultChecked={changeOdds}
@@ -429,11 +524,22 @@ class Simulator extends Component {
             <FormControl
               type="text"
               placeholder="CHANGE ODDS TO"
-              defaultValue={changeOddsTo}
+              defaultValue={changeOddsTo.toFixed(0)}
               onChange={(e)=>{
                 setChangeOddsTo(parseFloat(e.target.value));
+                (parseFloat(e.target.value) >= this.betOddsLowerLimit && parseFloat(e.target.value) <= this.betOddsUpperLimit)? //Use the target value instead of the variable because it is more updated.
+                  setChangeOddsToValidationState(true)
+                :
+                  setChangeOddsToValidationState(false)
               }}
             />
+            {!changeOddsToValidationState?
+              <HelpBlock>
+                {'Enter a value between ' + this.betOddsLowerLimit.toFixed(2) + ' and ' + this.betOddsUpperLimit.toFixed(2)}
+              </HelpBlock>
+            :
+              null
+            }
           </Col>
         </FormGroup>
       </div>
@@ -462,38 +568,57 @@ class Simulator extends Component {
     return (
       <div>
         <form>
-          <FormGroup validationState="success">
-            <Col xs={5}>
-              <ControlLabel>
-                BALANCE
-              </ControlLabel>
+          <Row>
+            <Col xs={0} sm={6} md={8}>
             </Col>
-            <Col xs={7}>
-              <FormControl
-                type="text"
-                placeholder="BALANCE"
-                defaultValue={this.balance.toFixed(8)}
-                onChange={(e)=>{this.balance = parseFloat(e.target.value)}}
-                inputRef={ref => { this.balanceInput = ref; }}
-              />
+            <Col xs={12} sm={6} md={4}>
+              <FormGroup validationState={this.state.balanceValidationState? "success" : "error"}>
+                <InputGroup>
+                  <InputGroup.Addon>
+                    BALANCE
+                  </InputGroup.Addon>
+                  <FormControl
+                    type="text"
+                    placeholder="BALANCE"
+                    defaultValue={this.balance.toFixed(8)}
+                    onChange={(e)=>{
+                      this.balance = parseFloat(e.target.value);
+                      (this.balance >= this.balanceLowerLimit)?
+                        this.setState({balanceValidationState: true})
+                      :
+                        this.setState({balanceValidationState: false})
+                    }}
+                    inputRef={ref => { this.balanceInput = ref; }}
+                  />
+                </InputGroup>
+                {!this.state.balanceValidationState?
+                  <HelpBlock>
+                    {'Enter a value greater than or equal to ' + this.balanceLowerLimit}
+                  </HelpBlock>
+                :
+                  null
+                }
+              </FormGroup>
             </Col>
-          </FormGroup>
+          </Row>
           <Tabs
-            defaultActiveKey={"manualBet"}
+            defaultActiveKey={"autoBet"}
             onSelect={this.handleSelectManualOrAutoBet}
             animation={false}
             id="manual-or-auto-tabs"
           >
+            {/*
             <Tab eventKey={"manualBet"} title="MANUAL BET">
               <br />
             </Tab>
+            */}
             <Tab eventKey={"autoBet"} title="AUTO BET">
               <br />
               <Row>
                 <Col xs={12} sm={6} md={4}>
                   <Panel>
                     <Panel.Body>
-                      <FormGroup validationState="success">
+                      <FormGroup validationState={this.state.baseBetValidationState? "success" : "error"}>
                         <InputGroup>
                           <InputGroup.Addon>
                             BASE BET
@@ -502,255 +627,393 @@ class Simulator extends Component {
                             type="text"
                             placeholder="BASE BET"
                             defaultValue={this.baseBet.toFixed(8)}
-                            onChange={(e)=>{this.baseBet = parseFloat(e.target.value)}}
+                            onChange={(e)=>{
+                              this.baseBet = parseFloat(e.target.value);
+                              (this.baseBet >= this.betLowerLimit && this.baseBet <= this.betUpperLimit)?
+                                this.setState({baseBetValidationState: true})
+                              :
+                                this.setState({baseBetValidationState: false})
+                            }}
                           />
                         </InputGroup>
+                        {!this.state.baseBetValidationState?
+                          <HelpBlock>
+                            {'Enter a value between ' + this.betLowerLimit.toFixed(8) + ' and ' + this.betUpperLimit}
+                          </HelpBlock>
+                        :
+                          null
+                        }
                       </FormGroup>
-                      <FormGroup validationState="success">
-                        <Col xs={5}>
-                          <ControlLabel>
+                      <FormGroup validationState={this.state.maxBetWinValidationState? "success" : "error"}>
+                        <InputGroup>
+                          <InputGroup.Addon>
                             MAX BET/WIN
-                          </ControlLabel>
-                        </Col>
-                        <Col xs={7}>
+                          </InputGroup.Addon>
                           <FormControl
                             type="text"
                             placeholder="MAX BET/WIN"
-                            defaultValue={this.maxBetWin}
-                            onChange={(e)=>{this.maxBetWin = parseFloat(e.target.value)}}
+                            defaultValue={this.maxBetWin.toFixed(0)}
+                            onChange={(e)=>{
+                              this.maxBetWin = parseFloat(e.target.value);
+                              (this.maxBetWin >= this.betLowerLimit && this.maxBetWin <= this.betUpperLimit)?
+                                this.setState({maxBetWinValidationState: true})
+                              :
+                                this.setState({maxBetWinValidationState: false})
+                            }}
                           />
-                        </Col>
+                        </InputGroup>
+                        {!this.state.maxBetWinValidationState?
+                          <HelpBlock>
+                            {'Enter a value between ' + this.betLowerLimit.toFixed(8) + ' and ' + this.betUpperLimit}
+                          </HelpBlock>
+                        :
+                          null
+                        }
                       </FormGroup>
                       <Row>
                         <Col xs={6}>
-                          <FormGroup validationState="success">
-                            <ControlLabel>
-                              BET ODDS
-                            </ControlLabel>
-                            <FormControl
-                              type="text"
-                              placeholder="BET ODDS"
-                              defaultValue={this.betOdds.toFixed(2)}
-                              onChange={(e)=>{
-                                this.betOdds = parseFloat(e.target.value);
-                              }}
-                            />
+                          <FormGroup validationState={this.state.betOddsValidationState? "success" : "error"}>
+                            <Panel bsStyle={this.state.betOddsValidationState? "success" : "danger"}>
+                              <Panel.Heading>
+                                <Panel.Title>
+                                  BET ODDS
+                                </Panel.Title>
+                              </Panel.Heading>
+                              <Panel.Body>
+                                <FormControl
+                                  type="text"
+                                  placeholder="BET ODDS"
+                                  defaultValue={this.betOdds.toFixed(2)}
+                                  onChange={(e)=>{
+                                    this.betOdds = parseFloat(e.target.value)? parseFloat(e.target.value) : 0; //This is to prevent unexpected problem when this.betOdds is NaN.
+                                    this.setState({
+                                      winningConditionForHi: this.getWinningConditionForHi(this.betOdds),
+                                      winningConditionForLo: this.getWinningConditionForLo(this.betOdds),
+                                      winChance: this.getWinChance(this.betOdds),
+                                    });
+                                    (this.betOdds >= this.betOddsLowerLimit && this.betOdds <= this.betOddsUpperLimit)?
+                                      this.setState({betOddsValidationState: true})
+                                    :
+                                      this.setState({betOddsValidationState: false})
+                                  }}
+                                />
+                                {!this.state.betOddsValidationState?
+                                  <HelpBlock>
+                                    {'Enter a value between ' + this.betOddsLowerLimit.toFixed(2) + ' and ' + this.betOddsUpperLimit.toFixed(2)}
+                                  </HelpBlock>
+                                :
+                                  null
+                                }
+                                {/*
+                                <div>
+                                  {'WIN CHANCE ' + (this.state.winChance*100).toFixed(2) + '%'}
+                                </div>
+                                */}
+                              </Panel.Body>
+                            </Panel>
                           </FormGroup>
                         </Col>
                         <Col xs={6}>
-                          <FormGroup validationState="success">
-                            <ControlLabel>
-                              NO. OF ROLLS
-                            </ControlLabel>
-                            <FormControl
-                              type="text"
-                              placeholder="NO. OF ROLLS"
-                              defaultValue={this.noOfRolls}
-                              onChange={(e)=>{this.noOfRolls = parseInt(e.target.value, 10)}}
-                            />
+                          <FormGroup validationState={this.state.noOfRollsValidationState? "success" : "error"}>
+                            <Panel bsStyle={this.state.noOfRollsValidationState? "success" : "danger"}>
+                              <Panel.Heading>
+                                <Panel.Title>
+                                  NO. OF ROLLS
+                                </Panel.Title>
+                              </Panel.Heading>
+                              <Panel.Body>
+                                <FormControl
+                                  type="text"
+                                  placeholder="NO. OF ROLLS"
+                                  defaultValue={this.noOfRolls.toFixed(0)}
+                                  onChange={(e)=>{
+                                    this.noOfRolls = parseInt(e.target.value, 10);
+                                    (this.noOfRolls >= this.noOfRollsLowerLimit)?
+                                      this.setState({noOfRollsValidationState: true})
+                                    :
+                                      this.setState({noOfRollsValidationState: false})
+                                    }}
+                                />
+                                {!this.state.noOfRollsValidationState?
+                                  <HelpBlock>
+                                    {'Enter a value greater than or equal to ' + this.noOfRollsLowerLimit}
+                                  </HelpBlock>
+                                :
+                                  null
+                                }
+                              </Panel.Body>
+                            </Panel>
                           </FormGroup>
                         </Col>
                       </Row>
-                      <FormGroup validationState="success">
-                        <ControlLabel>
-                          BET ON
-                        </ControlLabel>
-                        <br />
-                        <Radio
-                          name="radioGroupBetOn"
-                          inline
-                          defaultChecked={this.betOnHi}
-                          onChange={(e)=>{
-                            this.betOnHi = true;
-                            this.betOnLo = false;
-                            this.betOnAlternate = false;
-                          }}
-                        >
-                          HI
-                        </Radio>{' '}
-                        <Radio
-                          name="radioGroupBetOn"
-                          inline
-                          defaultChecked={this.betOnLo}
-                          onChange={(e)=>{
-                            this.betOnHi = false;
-                            this.betOnLo = true;
-                            this.betOnAlternate = false;
-                          }}
-                        >
-                          LO
-                        </Radio>{' '}
-                        <Radio
-                          name="radioGroupBetOn"
-                          inline
-                          defaultChecked={this.betOnAlternate}
-                          onChange={(e)=>{
-                            this.betOnHi = false;
-                            this.betOnLo = false;
-                            this.betOnAlternate = true;
-                          }}
-                        >
-                          ALTERNATE
-                        </Radio>
-                      </FormGroup>
-                      <FormGroup validationState="success">
-                        <ControlLabel>
-                          STOP BETTING AFTER
-                        </ControlLabel>
-                      </FormGroup>
-                      <FormGroup validationState="success">
-                        <Col xs={6}>
-                          <Checkbox
-                            defaultChecked={this.stopBettingAfterProfit}
-                            onChange={(e)=>{
-                              this.stopBettingAfterProfit = e.target.checked;
-                            }}
-                          >
-                            PROFIT >=
-                          </Checkbox>
-                        </Col>
-                        <Col xs={6}>
-                          <FormControl
-                            type="text"
-                            placeholder="PROFIT >="
-                            defaultValue={this.stopBettingAfterProfitGreaterEqual.toFixed(8)}
-                            onChange={(e)=>{
-                              this.stopBettingAfterProfitGreaterEqual = parseFloat(e.target.value);
-                            }}
-                          />
-                        </Col>
-                      </FormGroup>
-                      <Clearfix />
-                      <FormGroup validationState="success">
-                        <Col xs={6}>
-                          <Checkbox
-                            defaultChecked={this.stopBettingAfterLoss}
-                            onChange={(e)=>{
-                              this.stopBettingAfterLoss = e.target.checked;
-                            }}
-                          >
-                            LOSS >=
-                          </Checkbox>
-                        </Col>
-                        <Col xs={6}>
-                          <FormControl
-                            type="text"
-                            placeholder="LOSS >="
-                            defaultValue={this.stopBettingAfterLossGreaterEqual.toFixed(8)}
-                            onChange={(e)=>{
-                              this.stopBettingAfterLossGreaterEqual = parseFloat(e.target.value);
-                            }}
-                          />
-                        </Col>
-                      </FormGroup>
-                      <Clearfix />
+                      <Panel bsStyle="success">
+                        <Panel.Heading>
+                          <Panel.Title>
+                            BET ON
+                          </Panel.Title>
+                        </Panel.Heading>
+                        <Panel.Body>
+                          <FormGroup validationState="success">
+                            <Radio
+                              name="radioGroupBetOn"
+                              inline
+                              defaultChecked={this.betOnHi}
+                              onChange={(e)=>{
+                                this.betOnHi = true;
+                                this.betOnLo = false;
+                                this.betOnAlternate = false;
+                              }}
+                            >
+                              HI
+                            </Radio>{' '}
+                            <Radio
+                              name="radioGroupBetOn"
+                              inline
+                              defaultChecked={this.betOnLo}
+                              onChange={(e)=>{
+                                this.betOnHi = false;
+                                this.betOnLo = true;
+                                this.betOnAlternate = false;
+                              }}
+                            >
+                              LO
+                            </Radio>{' '}
+                            <Radio
+                              name="radioGroupBetOn"
+                              inline
+                              defaultChecked={this.betOnAlternate}
+                              onChange={(e)=>{
+                                this.betOnHi = false;
+                                this.betOnLo = false;
+                                this.betOnAlternate = true;
+                              }}
+                            >
+                              ALTERNATE
+                            </Radio>
+                          </FormGroup>
+                        </Panel.Body>
+                      </Panel>
+                      <Panel
+                        bsStyle={(this.state.stopBettingAfterProfitGreaterEqualValidationState && this.state.stopBettingAfterLossGreaterEqualValidationState)?
+                          "success"
+                        :
+                          "danger"
+                        }
+                      >
+                        <Panel.Heading>
+                          <Panel.Title>
+                            STOP BETTING AFTER
+                          </Panel.Title>
+                        </Panel.Heading>
+                        <Panel.Body>
+                          <FormGroup validationState={this.state.stopBettingAfterProfitGreaterEqualValidationState? "success" : "error"}>
+                            <Col xs={6}>
+                              <Checkbox
+                                defaultChecked={this.stopBettingAfterProfit}
+                                onChange={(e)=>{
+                                  this.stopBettingAfterProfit = e.target.checked;
+                                }}
+                              >
+                                PROFIT >=
+                              </Checkbox>
+                            </Col>
+                            <Col xs={6}>
+                              <FormControl
+                                type="text"
+                                placeholder="PROFIT >="
+                                defaultValue={this.stopBettingAfterProfitGreaterEqual.toFixed(8)}
+                                onChange={(e)=>{
+                                  this.stopBettingAfterProfitGreaterEqual = parseFloat(e.target.value);
+                                  (this.stopBettingAfterProfitGreaterEqual >= this.stopBettingAfterLowerLimit)?
+                                    this.setState({stopBettingAfterProfitGreaterEqualValidationState: true})
+                                  :
+                                    this.setState({stopBettingAfterProfitGreaterEqualValidationState: false})
+                                }}
+                              />
+                              {!this.state.stopBettingAfterProfitGreaterEqualValidationState?
+                                <HelpBlock>
+                                  {'Enter a value greater than or equal to ' + this.stopBettingAfterLowerLimit.toFixed(8)}
+                                </HelpBlock>
+                              :
+                                null
+                              }
+                            </Col>
+                          </FormGroup>
+                          <Clearfix />
+                          <FormGroup validationState={this.state.stopBettingAfterLossGreaterEqualValidationState? "success" : "error"}>
+                            <Col xs={6}>
+                              <Checkbox
+                                defaultChecked={this.stopBettingAfterLoss}
+                                onChange={(e)=>{
+                                  this.stopBettingAfterLoss = e.target.checked;
+                                }}
+                              >
+                                LOSS >=
+                              </Checkbox>
+                            </Col>
+                            <Col xs={6}>
+                              <FormControl
+                                type="text"
+                                placeholder="LOSS >="
+                                defaultValue={this.stopBettingAfterLossGreaterEqual.toFixed(8)}
+                                onChange={(e)=>{
+                                  this.stopBettingAfterLossGreaterEqual = parseFloat(e.target.value);
+                                  (this.stopBettingAfterLossGreaterEqual >= this.stopBettingAfterLowerLimit)?
+                                    this.setState({stopBettingAfterLossGreaterEqualValidationState: true})
+                                  :
+                                    this.setState({stopBettingAfterLossGreaterEqualValidationState: false})
+                                }}
+                              />
+                              {!this.state.stopBettingAfterLossGreaterEqualValidationState?
+                                <HelpBlock>
+                                  {'Enter a value greater than or equal to ' + this.stopBettingAfterLowerLimit.toFixed(8)}
+                                </HelpBlock>
+                              :
+                                null
+                              }
+                            </Col>
+                          </FormGroup>
+                          <Clearfix />
+                        </Panel.Body>
+                      </Panel>
                     </Panel.Body>
                   </Panel>
                 </Col>
                 <Col xs={12} sm={6} md={4} mdPush={4}>
                   <Panel>
                     <Panel.Body>
-                      <Tabs
-                        defaultActiveKey={"onWin"}
-                        animation={true}
-                        id="on-win-or-lose-tabs"
-                      >
-                        <Tab eventKey={"onWin"} title="ON WIN">
-                          {this.renderOnWinOrLose(
-                            "radioGroupOnWin",
-                            this.onWinReturnToBaseBet,
-                            (v)=>{this.onWinReturnToBaseBet = v},
-                            this.onWinIncreaseBet,
-                            (v)=>{this.onWinIncreaseBet = v},
-                            this.onWinIncreaseBetBy,
-                            (v)=>{this.onWinIncreaseBetBy = v},
-                            this.onWinChangeOdds,
-                            (v)=>{this.onWinChangeOdds = v},
-                            this.onWinChangeOddsTo,
-                            (v)=>{this.onWinChangeOddsTo = v},
-                          )}
-                        </Tab>
-                        <Tab eventKey={"onLose"} title="ON LOSE">
-                          {this.renderOnWinOrLose(
-                            "radioGroupOnLose",
-                            this.onLoseReturnToBaseBet,
-                            (v)=>{this.onLoseReturnToBaseBet = v},
-                            this.onLoseIncreaseBet,
-                            (v)=>{this.onLoseIncreaseBet = v},
-                            this.onLoseIncreaseBetBy,
-                            (v)=>{this.onLoseIncreaseBetBy = v},
-                            this.onLoseChangeOdds,
-                            (v)=>{this.onLoseChangeOdds = v},
-                            this.onLoseChangeOddsTo,
-                            (v)=>{this.onLoseChangeOddsTo = v},
-                          )}
-                        </Tab>
-                      </Tabs>
-                      <br />
-                      <br />
-                      <br />
-                      <FormGroup validationState="success">
-                        <ControlLabel>
-                          ON HITTING MAX BET/WIN
-                        </ControlLabel>
-                        <Checkbox
-                          defaultChecked={this.onHittingMaxBetWinReturnToBaseBet}
-                          onChange={(e)=>{
-                            this.onHittingMaxBetWinReturnToBaseBet = e.target.checked;
-                          }}
-                        >
-                          RETURN TO BASE BET
-                        </Checkbox>
-                        <Checkbox
-                          defaultChecked={this.onHittingMaxBetWinStopBetting}
-                          onChange={(e)=>{
-                            this.onHittingMaxBetWinStopBetting = e.target.checked;
-                          }}
-                        >
-                          STOP BETTING
-                        </Checkbox>
-                      </FormGroup>
-                      <br />
-                      <FormGroup validationState="success">
-                        <Checkbox
-                          defaultChecked={this.randomizeClientSeed}
-                          onChange={(e)=>{
-                            this.randomizeClientSeed = e.target.checked;
-                          }}
-                        >
-                          RANDOMIZE CLIENT SEED
-                        </Checkbox>
-                        <Checkbox
-                          disabled
-                          defaultChecked={false}
-                          onChange={(e)=>{
-                          }}
-                        >
-                          DO NOT REFRESH
-                        </Checkbox>
-                        <Checkbox
-                          disabled
-                          defaultChecked={false}
-                          onChange={(e)=>{
-                          }}
-                        >
-                          ENABLE SOUNDS
-                        </Checkbox>
-                      </FormGroup>
+                      <Panel bsStyle="success">
+                        <Panel.Body>
+                          <Tabs
+                            defaultActiveKey={"onWin"}
+                            animation={true}
+                            id="on-win-or-lose-tabs"
+                          >
+                            <Tab eventKey={"onWin"} title="ON WIN">
+                              {this.renderOnWinOrLose(
+                                "radioGroupOnWin",
+                                this.onWinReturnToBaseBet,
+                                (v)=>{this.onWinReturnToBaseBet = v},
+                                this.onWinIncreaseBet,
+                                (v)=>{this.onWinIncreaseBet = v},
+                                this.onWinIncreaseBetBy,
+                                (v)=>{this.onWinIncreaseBetBy = v},
+                                this.onWinChangeOdds,
+                                (v)=>{this.onWinChangeOdds = v},
+                                this.onWinChangeOddsTo,
+                                (v)=>{this.onWinChangeOddsTo = v},
+                                this.state.onWinIncreaseBetByValidationState,
+                                (v)=>{this.setState({onWinIncreaseBetByValidationState: v})},
+                                this.state.onWinChangeOddsToValidationState,
+                                (v)=>{this.setState({onWinChangeOddsToValidationState: v})},
+                              )}
+                            </Tab>
+                            <Tab eventKey={"onLose"} title="ON LOSE">
+                              {this.renderOnWinOrLose(
+                                "radioGroupOnLose",
+                                this.onLoseReturnToBaseBet,
+                                (v)=>{this.onLoseReturnToBaseBet = v},
+                                this.onLoseIncreaseBet,
+                                (v)=>{this.onLoseIncreaseBet = v},
+                                this.onLoseIncreaseBetBy,
+                                (v)=>{this.onLoseIncreaseBetBy = v},
+                                this.onLoseChangeOdds,
+                                (v)=>{this.onLoseChangeOdds = v},
+                                this.onLoseChangeOddsTo,
+                                (v)=>{this.onLoseChangeOddsTo = v},
+                                this.state.onLoseIncreaseBetByValidationState,
+                                (v)=>{this.setState({onLoseIncreaseBetByValidationState: v})},
+                                this.state.onLoseChangeOddsToValidationState,
+                                (v)=>{this.setState({onLoseChangeOddsToValidationState: v})},
+                              )}
+                            </Tab>
+                          </Tabs>
+                        </Panel.Body>
+                      </Panel>
+                      <Panel bsStyle="success">
+                        <Panel.Heading>
+                          <Panel.Title>
+                            ON HITTING MAX BET/WIN
+                          </Panel.Title>
+                        </Panel.Heading>
+                        <Panel.Body>
+                          <FormGroup validationState="success">
+                            <Checkbox
+                              defaultChecked={this.onHittingMaxBetWinReturnToBaseBet}
+                              onChange={(e)=>{
+                                this.onHittingMaxBetWinReturnToBaseBet = e.target.checked;
+                              }}
+                            >
+                              RETURN TO BASE BET
+                            </Checkbox>
+                            <Checkbox
+                              defaultChecked={this.onHittingMaxBetWinStopBetting}
+                              onChange={(e)=>{
+                                this.onHittingMaxBetWinStopBetting = e.target.checked;
+                              }}
+                            >
+                              STOP BETTING
+                            </Checkbox>
+                          </FormGroup>
+                        </Panel.Body>
+                      </Panel>
+                      <Panel bsStyle="success">
+                        <Panel.Heading>
+                          <Panel.Title>
+                            ON HITTING MAX BET/WIN
+                          </Panel.Title>
+                        </Panel.Heading>
+                        <Panel.Body>
+                          <FormGroup validationState="success">
+                            <Checkbox
+                              defaultChecked={this.randomizeClientSeed}
+                              onChange={(e)=>{
+                                this.randomizeClientSeed = e.target.checked;
+                              }}
+                            >
+                              RANDOMIZE CLIENT SEED
+                            </Checkbox>
+                            <Checkbox
+                              disabled
+                              defaultChecked={false}
+                              onChange={(e)=>{
+                              }}
+                            >
+                              DO NOT REFRESH
+                            </Checkbox>
+                            <Checkbox
+                              disabled
+                              defaultChecked={false}
+                              onChange={(e)=>{
+                              }}
+                            >
+                              ENABLE SOUNDS
+                            </Checkbox>
+                          </FormGroup>
+                        </Panel.Body>
+                      </Panel>
                     </Panel.Body>
                   </Panel>
                 </Col>
                 <Col xs={12} sm={12} md={4} mdPull={4}>
                   <Panel>
-                    <Panel.Body>
-                      <Well>
+                    <Panel.Body
+                      style={{
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Well
+                        style={{fontSize: '400%'}}
+                      >
                         {this.randomRoll.toString().padStart(5, '0')}
                       </Well>
                       {this.showAutoBetStatus?
                         <Alert
                           bsStyle={this.alertStyle}
                         >
-                          {this.alertMessage}
+                          <b>
+                            {this.alertMessage}
+                          </b>
                         </Alert>
                       :
                         null
@@ -759,12 +1022,14 @@ class Simulator extends Component {
                         <Alert
                           bsStyle={this.jackpotAlertStyle}
                         >
-                          {this.jackpotAlertMessage}
+                          <b>
+                            {this.jackpotAlertMessage}
+                          </b>
                         </Alert>
                       :
                         null
                       }
-                      {this.props.simulator.noOfRollsRemaining <= 0?
+                      {this.props.noOfRollsRemaining <= 0?
                         <Button
                           bsStyle="warning"
                           onClick={this.handleStartAutoBet}
@@ -779,51 +1044,89 @@ class Simulator extends Component {
                           STOP AUTO-BET
                         </Button>
                       }
+                      <Checkbox
+                        defaultChecked={this.maxSpeedEnabled}
+                        onChange={(e)=>{
+                          this.maxSpeedEnabled = e.target.checked;
+                        }}
+                      >
+                        MAX SPEED
+                      </Checkbox>
                       {this.showAutoBetStatus?
                         <div>
                           <div>
-                            ROLLS PLAYED:
+                            <small>
+                              ROLLS PLAYED:
+                            </small>
                           </div>
                           <div>
-                            {this.rollsPlayedInThisSession}
+                            <b>
+                              {this.rollsPlayedInThisSession}
+                            </b>
                           </div>
                           <div>
-                            ROLLS REMAINING:
+                            <small>
+                              ROLLS REMAINING:
+                            </small>
                           </div>
                           <div>
-                            {this.rollsRemainingInThisSession}
+                            <b>
+                              {this.rollsRemainingInThisSession}
+                            </b>
                           </div>
                           <div>
-                            BIGGEST BET THIS SESSION:
+                            <small>
+                              BIGGEST BET THIS SESSION:
+                            </small>
                           </div>
                           <div>
-                            {this.biggestBetInThisSession.toFixed(8) + ' BTC'}
+                            <b>
+                              {this.biggestBetInThisSession.toFixed(8) + ' BTC'}
+                            </b>
                           </div>
                           <div>
-                            BIGGEST WIN THIS SESSION:
+                            <small>
+                              BIGGEST WIN THIS SESSION:
+                            </small>
                           </div>
                           <div>
-                            {this.biggestWinInThisSession.toFixed(8) + ' BTC'}
+                            <b>
+                              {this.biggestWinInThisSession.toFixed(8) + ' BTC'}
+                            </b>
                           </div>
                           <div>
-                            BETTING P/L THIS SESSION:
+                            <small>
+                              BETTING P/L THIS SESSION:
+                            </small>
                           </div>
                           <Alert
                             bsStyle={this.bettingProfitOrLossInThisSessionStyle}
                           >
-                            {this.bettingProfitOrLossInThisSession.toFixed(8) + ' BTC'}
+                            <b>
+                              {this.bettingProfitOrLossInThisSession.toFixed(8) + ' BTC'}
+                            </b>
                           </Alert>
                         </div>
                       :
                         null
                       }
                       <div>
-                        PLAY FOR JACKPOTS
+                        {'To win, BET HI and get a number higher than '}
+                        <b>{this.getWinningConditionForHi(this.betOdds)}</b>
+                        {' or BET LO and get a number lower than '}
+                        <b>{this.getWinningConditionForLo(this.betOdds)}</b>
                       </div>
                       <div>
-                        Roll number 8888 to win the jackpots!
+                        <b>PLAY FOR JACKPOTS</b>
                       </div>
-                      <Table bordered>
+                      <div>
+                        Roll number <b>8888</b> to win the jackpots!
+                      </div>
+                      <Table
+                        striped
+                        bordered
+                        condensed
+                      >
                         <thead>
                           <tr>
                             <th>SELECT</th>
@@ -879,7 +1182,7 @@ class Simulator extends Component {
 export default connect(
   state => {
     return {
-      simulator: state.simulator,
+      noOfRollsRemaining: state.simulator.noOfRollsRemaining,
     };
   },
   {
