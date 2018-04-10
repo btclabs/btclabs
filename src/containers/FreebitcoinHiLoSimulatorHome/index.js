@@ -18,9 +18,9 @@ class FreebitcoinHiLoSimulatorHome extends Component {
               </h1>
               <h3>
                 {"For both "}
-                <a href="https://freebitco.in/?r=13203612" target="_blank">freebitco.in</a>
+                <a href="https://freebitco.in/?r=13203612" target="_blank">freebitcoin</a>
                 {" and "}
-                <a href="https://freedoge.co.in/?r=2373621" target="_blank">freedoge.co.in</a>
+                <a href="https://freedoge.co.in/?r=2373621" target="_blank">freedogecoin</a>
               </h3>
               <br />
               <br />
